@@ -141,8 +141,8 @@ ExportToImage(buildPath, fileName) {
 
 ; START 
 SetTitleMatchMode, RegEx
-IfWinNotExist, Line Sweep Tools
-	Run, LST.exe, %LSTPath%
+;IfWinNotExist, Line Sweep Tools
+;	Run, LST.exe, %LSTPath%
 WinActivate, Line Sweep Tools
 WinWaitActive, Line Sweep Tools
 WinShow, Line Sweep Tools
@@ -179,4 +179,4 @@ IfWinExist, Overwite Old DAT?
 }
 Send !fc
 
-WinHide, Line Sweep Tools
+;WinHide, Line Sweep Tools
