@@ -1,0 +1,182 @@
+global OffsetX := ${offsetX}
+global OffsetY := ${offsetY}
+global InputFileName = "${inputName}"
+global InputFilePath = "${inputDir}"
+global BuildPath = "${outputDir}"
+global LSTPath = "${lineSweepToolsDir}"
+
+
+Coord(x, y) {
+	return % "x" . (X + OffsetX) . " y" . (Y + OffsetY)
+}
+
+OpenFile(path, fileName) {
+	SetTitleMatchMode, RegEx
+
+	Send, !f 
+	Send, {ENTER}
+	WinWaitActive, Open Line Sweep Tools File
+	FilePath = %path%\\%fileName%.dat
+	SendMessage, 0x0C, , &FilePath, Edit2, Open Line Sweep Tools File
+	ControlClick, WindowsForms10.BUTTON.app.0.33c0d9d1, Open Line Sweep Tools File
+	WinWaitActive, , %fileName%
+	Send, !e
+	Send, {ENTER}
+
+	WinWaitActive, ^Plot Properties
+}
+
+PerformActionTab1() {
+	SetTitleMatchMode, RegEx
+
+	SendMessage, 0x1330, 0, , WindowsForms10.SysTabControl32.app.0.33c0d9d1, ^Plot Properties
+	SendMessage, 0x0C, , "${title}", WindowsForms10.EDIT.app.0.33c0d9d2, ^Plot Properties
+	SendMessage, 0x0C, , "${buildingName} ${subtitle}${subtitleSuffix}", WindowsForms10.EDIT.app.0.33c0d9d1, ^Plot Properties
+	Send, !a
+}
+
+PerformActionTab2() {
+	SetTitleMatchMode, RegEx
+	
+	SendMessage, 0x1330, 1, , WindowsForms10.SysTabControl32.app.0.33c0d9d1, ^Plot Properties
+	Control, Choose, ${hitDownForDisplayModeAmount}, WindowsForms10.COMBOBOX.app.0.33c0d9d1, ^Plot Properties
+	Send, !a
+}
+
+PerformActionTab3() {
+	SetTitleMatchMode, RegEx
+
+	SendMessage, 0x1330, 2, , WindowsForms10.SysTabControl32.app.0.33c0d9d1, ^Plot Properties
+	Send, {TAB 4}{Del}${top} ; Type top
+	Send, {TAB 1}{Del}${bottom} ; Type bottom
+	<% 	
+		if (distanceUnits == "Feet") 
+			out << 'ControlClick, % Coord(152, 134), A ; Choose Feet'
+		else 
+			out << 'ControlClick, % Coord(397, 134), A ; Choose Meters' 
+	%>
+
+	<% 	
+		if (limit == "Single Value") {
+			out << ('ControlClick, % Coord(152, 184), A ; Choose Single Value' + "\n\t")
+			out << ('Sleep, 350' + "\n\t")
+			out << ('ControlClick, % Coord(460, 230), A ; Choose Single limit line value' + "\n\t")
+			out << "Send, {Shift down}{Home}{Shift up}{Del}${singleLimitLineValue} ; Type limit"
+		} else 
+			out << 'ControlClick, % Coord(397, 184), A ; Choose Segmented' 
+	%>
+
+	Send, !a
+}
+
+PerformActionTab4() {
+	SetTitleMatchMode, RegEx
+
+	SendMessage, 0x1330, 3, , WindowsForms10.SysTabControl32.app.0.33c0d9d1, ^Plot Properties
+
+	ControlClick, %  Coord(47, 114), A ; Enable M1 Button
+	<%
+		if (m1 == "Peak") {
+			out << "ControlClick, %  Coord(114, 114), A ; Hit M1 Peak"
+		} else if (m1 == "Valley") {
+			out << "ControlClick, %  Coord(179, 114), A ; Hit M1 Valley"
+		} else {
+			out << ("Sleep, 250 ; Wait until Distance Textfield become fully enable" + "\n\t")
+			out << ("ControlClick, %  Coord(297, 114), A ; Hit Distance Textfield")
+			out << ("Send, {Shift down}{Home}{Shift up}{Del}${m1} ; Set text Distance Textfield")
+		}
+	%>
+
+	ControlClick, %  Coord(47, 174), A ; Enable M2 Button
+	<%
+		if (m2 == "Peak") {
+			out << "ControlClick, %  Coord(114, 174), A ; Hit M2 Peak"
+		} else if (m2 == "Valley") {
+			out << "ControlClick, %  Coord(179, 174), A ; Hit M2 Valley"
+		} else {
+			out << ("Sleep, 250 ; Wait until Distance Textfield become fully enable" + "\n\t")
+			out << ("ControlClick, %  Coord(297, 174), A ; Hit Distance Textfield" + "\n\t")
+			out << ("Send, {Shift down}{Home}{Shift up}{Del}${m2} ; Set text Distance Textfield")
+		}
+	%>
+	
+	Send, !a
+}
+
+PerformActionTab5() {
+	SendMessage, 0x1330, 4, , WindowsForms10.SysTabControl32.app.0.33c0d9d1, ^Plot Properties
+
+	<%
+		if (miscLine == "Thin Line") {
+			out << "ControlClick, WindowsForms10.BUTTON.app.0.33c0d9d25 ; Thin Line"
+		} else if (miscLine == "Medium") {
+			out << "ControlClick, WindowsForms10.BUTTON.app.0.33c0d9d27 ; Medium"
+		} else if (miscLine == "Thick Line") {
+			out << "ControlClick, WindowsForms10.BUTTON.app.0.33c0d9d26 ; Thick Line"
+		}
+	%>
+
+	Send, !a
+}
+
+ExportToCSV(buildPath, fileName) {
+	Send, !f 
+	Send, {Down 4}{Right 1}{ENTER}
+	WinWaitActive, Save As
+	BuildFile = %buildPath%\\%fileName%.csv
+	SendMessage, 0x0C, , &BuildFile, Edit1, Save As
+	Sleep, 1000
+	Send, !s
+}
+
+ExportToImage(buildPath, fileName) {
+	Send, !f 
+	Send, {Down 4}{Right 1}{Down 1}{Right 1}{Down 1}{ENTER}
+	WinWaitActive, Save As
+	BuildFile = %buildPath%\\%fileName%.jpg
+	SendMessage, 0x0C, , &BuildFile, Edit1, Save As
+	Sleep, 1000
+	Send, !s
+}
+
+; START 
+SetTitleMatchMode, RegEx
+IfWinNotExist, Line Sweep Tools
+	Run, LST.exe, %LSTPath%
+WinActivate, Line Sweep Tools
+WinWaitActive, Line Sweep Tools
+WinShow, Line Sweep Tools
+
+OpenFile(InputFilePath, InputFileName)
+
+; TAB 1
+PerformActionTab1()
+
+; TAB 2
+PerformActionTab2()
+
+; TAB 3
+PerformActionTab3()
+
+; TAB 4
+PerformActionTab4()
+
+; TAB 5
+PerformActionTab5()
+
+; Save
+Send, !o
+
+; Export to CSV
+ExportToCSV(BuildPath, InputFileName)
+ExportToImage(BuildPath, InputFileName)
+
+Send ^s
+Sleep, 1000
+IfWinExist, Overwite Old DAT?
+{
+	ControlClick, Button1
+}
+Send !fc
+
+WinHide, Line Sweep Tools
