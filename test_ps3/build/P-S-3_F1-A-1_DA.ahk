@@ -105,11 +105,12 @@ ExportToImage(buildPath, fileName) {
 
 ; START 
 SetTitleMatchMode, RegEx
-;IfWinNotExist, Line Sweep Tools
-;	Run, LST.exe, %LSTPath%
-WinActivate, Line Sweep Tools
-WinWaitActive, Line Sweep Tools
-WinShow, Line Sweep Tools
+
+IfWinNotExist, ahk_exe LST.exe
+	Run, LST.exe, %LSTPath%
+	
+WinActivate, ahk_exe LST.exe
+WinWaitActive, ahk_exe LST.exe
 
 OpenFile(InputFilePath, InputFileName)
 
@@ -142,5 +143,5 @@ IfWinExist, Overwite Old DAT?
 	ControlClick, Button1
 }
 Send !fc
-
-;WinHide, Line Sweep Tools
+Sleep, 1000
+WinHide, ahk_exe LST.exe
