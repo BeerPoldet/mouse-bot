@@ -9,102 +9,117 @@ import static com.absg.Utils.*
 
 class SummaryWorker {
 	static void main(String[] args) {
-		def metaFileName = "meta.properties"
-		def operator = "dtac"
-		def metaDirName = "f1s1"
-
+		def metaDirName
 		if (args.size() > 0) {
-			metaFileName = args[0]
-			metaDirName = args[1]
+			metaDirName = args[0]
 		}
 
-		start(metaDirName, metaFileName)
+		start(metaDirName)
 	}
 
 	static SUMMARY_FEEDER_FILE_NAME = "feeder.txt"
 	static SUMMARY_ANT_FILE_NAME = "ant.txt"
 
-	static start(metaDirName, metaFileName) {
-		def metaFile = new MetaFile(metaDirName, metaFileName, META_FILE_PATH, BUILD_DIR_NAME)
+	static start(metaDirName) {
+		def metaFile = new MetaFile(metaDirName, META_FILE_NAME, META_FILE_PATH, BUILD_DIR_NAME, INPUT_DAT_DIR)
 
 		def metaProperties = Utils.loadMetaProperties(metaFile, null)
 
-		new File("${metaProperties.outputDir}/${SUMMARY_FEEDER_FILE_NAME}").delete() 
-		new File("${metaProperties.outputDir}/${SUMMARY_ANT_FILE_NAME}").delete() 
-		def fileList = listCSVFile(metaProperties.outputDir) // output from previous script becomes input
-		
-		def summaryFeederFile = new File("${metaProperties.outputDir}/${SUMMARY_FEEDER_FILE_NAME}")
-		def summaryAntFile = new File("${metaProperties.outputDir}/${SUMMARY_ANT_FILE_NAME}")
+		Utils.forEachSubfolder(metaFile.buildDirPath) { directory ->
+			def feederTextFilePath = "${metaFile.buildDirPath}/${directory.name}/${SUMMARY_FEEDER_FILE_NAME}"
+			def antTextFilePath = "${metaFile.buildDirPath}/${directory.name}/${SUMMARY_ANT_FILE_NAME}"
+			
+			def summaryFeederFile = new File(feederTextFilePath)
+			def summaryAntFile = new File(antTextFilePath)
+			summaryFeederFile.text = ""
+			summaryAntFile.text = ""
 
-		def feederTestResults = [:]
-		def antennaTestResults = [:]
+			// Read specific (sub) meta properties for each sub folder
+			def subMetaProperties = Utils.loadSubMetaProperties(metaFile, directory)
+			// then merge with host meta properties
+			def mergeProperties = [:]
+			mergeProperties.putAll(metaProperties)
+			mergeProperties.putAll(subMetaProperties)
 
-		fileList.each { file ->
-			def summaryType = getSummaryType(Utils.getFileTitle(file)) // FEEDER or ANTENNA
-			def measurementTypeForLengthAndVSWR = 
-						getMeasurementTypeForLengthAndVSWR(metaProperties.operator, summaryType)
+			def feederTestResults = [:]
+			def antennaTestResults = [:]
 
-			switch(summaryType) {
-				case FEEDER_TYPE:
-					def feederNumber = Utils.subtitle(Utils.getFileTitle(file))
-					if (!feederTestResults[feederNumber]) {
-						def items = feederNumber.split(DAT_FILE_SECTION_SEPARATOR)
-						feederTestResults[feederNumber] = [
-							feederNumber: feederNumber,
-							startPoint: items[0],
-							endPoint: items[1]
-						]
-					}
+			println ""
+			println "summarizing directory: ${directory.name}, operator: ${mergeProperties.operator}"
 
-					def markerData = getMarkerData(file, "M1")
+			Utils.forEachFileExtension(directory.path, ".csv") { file ->
+				def summaryType = getSummaryType(Utils.getFileTitle(file)) // FEEDER or ANTENNA
+				def measurementTypeForLength = 
+					getMeasurementTypeForLength(mergeProperties.operator, summaryType)
+				def measurementTypeForVSWR = 
+					getMeasurementTypeForVSWR(mergeProperties.operator, summaryType)
 
-					if (Utils.getMeasurementType(Utils.getFileTitle(file)) == measurementTypeForLengthAndVSWR) {
-						feederTestResults[feederNumber].length = markerData.freq
-						feederTestResults[feederNumber].vswr = markerData.value
-					} else  if (Utils.getMeasurementType(Utils.getFileTitle(file)) == MT_RL) {
-						feederTestResults[feederNumber].returnLoss = markerData.value
-					}
-				break
-				case ANT_TYPE:
-					def antennaNumber = Utils.subtitle(Utils.getFileTitle(file))
-					if (!antennaTestResults[antennaNumber]) {
-						def items = antennaNumber.split(DAT_FILE_SECTION_SEPARATOR)
-						antennaTestResults[antennaNumber] = [
-							antennaNumber: items[1],
-							connectionPoint: items[0]
-						]
-					}
+				println "\tread data from ${file.name}"			
+				switch(summaryType) {
+					case FEEDER_TYPE:
+						def feederNumber = Utils.subtitle(Utils.getFileTitle(file))
+						if (!feederTestResults[feederNumber]) {
+							def items = feederNumber.split(DAT_FILE_SECTION_SEPARATOR)
+							feederTestResults[feederNumber] = [
+								feederNumber: feederNumber,
+								startPoint: items[0],
+								endPoint: items[1]
+							]
+						}
 
-					def markerData = getMarkerData(file, "M1")
-					if (Utils.getMeasurementType(Utils.getFileTitle(file)) == measurementTypeForLengthAndVSWR) {
-						// antennaTestResults[antennaNumber].length = markerData.freq
-						antennaTestResults[antennaNumber].vswr = markerData.value
-					} else  if (Utils.getMeasurementType(Utils.getFileTitle(file)) == MT_RA) {
-						antennaTestResults[antennaNumber].returnLoss = markerData.value
-					}
-				break
+						def markerData = getMarkerData(file, "M1")
+
+						if (Utils.getMeasurementType(Utils.getFileTitle(file)) == measurementTypeForLength) {
+							feederTestResults[feederNumber].length = markerData.freq
+						} else if (Utils.getMeasurementType(Utils.getFileTitle(file)) == measurementTypeForVSWR) {
+							feederTestResults[feederNumber].vswr = markerData.value
+						} else if (Utils.getMeasurementType(Utils.getFileTitle(file)) == MT_RL) {
+							feederTestResults[feederNumber].returnLoss = markerData.value
+						}
+					break
+					case ANT_TYPE:
+						def antennaNumber = Utils.subtitle(Utils.getFileTitle(file))
+						if (!antennaTestResults[antennaNumber]) {
+							def items = antennaNumber.split(DAT_FILE_SECTION_SEPARATOR)
+							antennaTestResults[antennaNumber] = [
+								antennaNumber: items[1],
+								connectionPoint: items[0]
+							]
+						}
+
+						def markerData = getMarkerData(file, "M1")
+						if (Utils.getMeasurementType(Utils.getFileTitle(file)) == measurementTypeForVSWR) {
+							// antennaTestResults[antennaNumber].length = markerData.freq
+							antennaTestResults[antennaNumber].vswr = markerData.value
+						} else  if (Utils.getMeasurementType(Utils.getFileTitle(file)) == MT_RA) {
+							antennaTestResults[antennaNumber].returnLoss = markerData.value
+						}
+					break
+				}
+			}
+
+			feederTestResults.each { feederNumber, data ->
+				writeLine(summaryFeederFile, String.format("%s %s %s %s %s %s",
+					data.feederNumber, 
+					data.length ?: "", 
+					data.returnLoss ?: "", 
+					data.startPoint, 
+					data.endPoint, 
+					data.vswr ?: "")
+				)
+			}
+
+			antennaTestResults.each { antennaNumber, data ->
+				writeLine(summaryAntFile, String.format("%s %s %s %s",
+					data.antennaNumber, 
+					data.returnLoss ?: "", 
+					data.connectionPoint, 
+					data.vswr ?: "")
+				)
 			}
 		}
 		
-		feederTestResults.each { feederNumber, data ->
-			writeLine(summaryFeederFile, String.format("%s %s %s %s %s %s",
-				data.feederNumber, 
-				data.length ?: "", 
-				data.returnLoss ?: "", 
-				data.startPoint, 
-				data.endPoint, 
-				data.vswr ?: "")
-			)
-		}
-
-		antennaTestResults.each { antennaNumber, data ->
-			writeLine(summaryAntFile, String.format("%s %s %s %s",
-				data.antennaNumber, 
-				data.returnLoss ?: "", 
-				data.connectionPoint, 
-				data.vswr ?: "")
-			)
-		}
+		
 		// writeLine(summaryAntFile, "${feederNumber}")
 	}
 
@@ -162,7 +177,14 @@ class SummaryWorker {
 		lastTypeLetter == "l" ? FEEDER_TYPE : ANT_TYPE
 	}
 
-	static getMeasurementTypeForLengthAndVSWR(operator, summaryType) {
+	static getMeasurementTypeForLength(operator, summaryType) {
+		if (operator == OPERATOR_AIS)
+			return summaryType == FEEDER_TYPE ? MT_DL : MT_DA
+
+		return summaryType == FEEDER_TYPE ? MT_DL : MT_DA
+	}
+
+	static getMeasurementTypeForVSWR(operator, summaryType) {
 		if (operator == OPERATOR_AIS)
 			return summaryType == FEEDER_TYPE ? MT_DL : MT_DA
 

@@ -60,8 +60,12 @@ PerformActionTab3() {
 		if (limit == "Single Value") {
 			out << ('ControlClick, % Coord(152, 184), A ; Choose Single Value' + "\n\t")
 			out << ('Sleep, 350' + "\n\t")
-			out << ('ControlClick, % Coord(460, 230), A ; Choose Single limit line value' + "\n\t")
-			out << "Send, {Shift down}{Home}{Shift up}{Del}${singleLimitLineValue} ; Type limit"
+			if (singleLimitLineValue == "off") {
+				out << ('ControlClick, % Coord(110, 230), A ; Choose Limit Line Off' + "\n\t")
+			} else {
+				out << ('ControlClick, % Coord(460, 230), A ; Choose Single limit line value' + "\n\t")
+				out << "Send, {Shift down}{Home}{Shift up}{Del}${singleLimitLineValue} ; Type limit"
+			}
 		} else 
 			out << 'ControlClick, % Coord(397, 184), A ; Choose Segmented' 
 	%>
@@ -142,8 +146,11 @@ ExportToImage(buildPath, fileName) {
 ; START 
 SetTitleMatchMode, RegEx
 
-IfWinNotExist, ahk_exe LST.exe
+IfWinNotExist, ahk_exe LST.exe 
+{
 	Run, LST.exe, %LSTPath%
+	Sleep, 7000
+}
 
 WinActivate, ahk_exe LST.exe
 WinWaitActive, ahk_exe LST.exe
@@ -180,3 +187,4 @@ IfWinExist, Overwite Old DAT?
 	ControlClick, Button1
 }
 Send !fc
+;WinMinimize, ahk_exe LST.exe
